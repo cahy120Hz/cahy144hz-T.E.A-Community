@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>T.E.A | The Editor of Astronomy - Seleksi Elite Luar Angkasa</title>
+    <!-- html2canvas untuk download card -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none; /* sci-fi feel */
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Orbitron', 'Share Tech Mono', monospace;
+            background-color: #010101;
+            overflow-x: hidden; /* Hapus overflow horizontal */
+            color: #eef5ff;
+            min-height: 100vh;
+            width: 100%;
+        }
+
+        /* CANVAS GALAXY BACKGROUND */
+        #galaxyCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            display: block;
+        }
+
+        /* SCANLINE OVERLAY */
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 255, 255, 0.02) 0px,
+                rgba(0, 255, 255, 0.02) 2px,
+                transparent 2px,
+                transparent 6px
+            );
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0.35;
+        }
+
+        /* ========== LOADING SCREEN STYLES (diperbaiki) ========== */
+        #loadingScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.92);
+            backdrop-filter: blur(4px);
+            z-index: 200;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            transition: opacity 1.2s ease-in-out;
+            font-family: 'Orbitron', monospace;
+        }
+
+        .loader-container {
+            text-align: center;
+            width: 80%;
+            max-width: 500px;
+            background: rgba(10, 20, 40, 0.5);
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            border-radius: 20px;
+            padding: 35px 25px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 0 35px rgba(0, 180, 255, 0.3);
+            animation: fadeGlowPulse 2s infinite;
+        }
+
+        @keyframes fadeGlowPulse {
+            0% { box-shadow: 0 0 10px rgba(0, 255, 255, 0.2); border-color: rgba(0,255,255,0.3);}
+            100% { box-shadow: 0 0 35px rgba(0, 255, 255, 0.7); border-color: #0ff;}
+        }
+
+        .loader-text {
+            font-size: 1.9rem;
+            letter-spacing: 4px;
+            margin-bottom: 30px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #aaffff, #2a7fff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: #1a2a3a;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+            box-shadow: inset 0 0 5px #000;
+        }
+
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #0cf, #2a6fdf, #0cf);
+            box-shadow: 0 0 12px #0cf;
+            border-radius: 10px;
+            transition: width 0.08s linear;
+        }
+
+        .percent {
+            font-size: 1.5rem;
+            font-family: monospace;
+            letter-spacing: 2px;
+            color: #8df;
+        }
+
+        /* ========== NAVBAR FIXED RESPONSIVE ========== */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+            background: rgba(5, 12, 25, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(0, 230, 250, 0.5);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .navbar-brand {
+            font-size: 1.3rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #aaffff, #2a7fff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: 2px;
+        }
+        .navbar-menu {
+            display: flex;
+            gap: 12px;
+        }
+        .nav-link {
+            color: #0cf;
+            text-decoration: none;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            padding: 6px 10px;
+            border-radius: 20px;
+            transition: 0.2s;
+        }
+        .nav-link:hover {
+            background: rgba(0, 255, 255, 0.2);
+            text-shadow: 0 0 5px #0cf;
+        }
+        @media (max-width: 550px) {
+            .navbar-brand { font-size: 1rem; }
+            .nav-link { font-size: 0.6rem; padding: 4px 8px; }
+            .navbar { padding: 10px 15px; }
+        }
+
+        /* MAIN APP (awal hidden) */
+        #mainApp {
+            position: relative;
+            z-index: 20;
+            opacity: 0;
+            transition: opacity 1.2s ease;
+            padding: 80px 1rem 2rem 1rem;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        /* FORM SECTION & CARD SECTION */
+        .glass-panel {
+            background: rgba(5, 12, 25, 0.65);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(0, 230, 250, 0.4);
+            border-radius: 32px;
+            padding: 1.8rem;
+            width: 100%;
+            max-width: 650px;
+            margin: 20px auto;
+            transition: all 0.3s;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        .form-group {
+            margin-bottom: 1.4rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            color: #bbf0ff;
+            text-transform: uppercase;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(0, 10, 25, 0.7);
+            border: 1px solid #2c5f8a;
+            border-radius: 18px;
+            color: #fff;
+            font-size: 0.95rem;
+            font-family: 'Share Tech Mono', monospace;
+            transition: all 0.25s ease;
+            outline: none;
+        }
+
+        input:focus, textarea:focus {
+            border-color: #0cf;
+            box-shadow: 0 0 20px #0cf, inset 0 0 5px #0cf;
+            background: rgba(0, 20, 45, 0.9);
+        }
+        /* error style + shake */
+        .input-error {
+            border-color: #ff3366 !important;
+            box-shadow: 0 0 12px #ff3366 !important;
+            animation: shake 0.3s ease-in-out 0s 2;
+        }
+        @keyframes shake {
+            0%,100%{ transform: translateX(0); }
+            25%{ transform: translateX(-5px); }
+            75%{ transform: translateX(5px); }
+        }
+
+        .btn-neon {
+            background: linear-gradient(95deg, #0a2a4a, #001e3c);
+            border: 1.5px solid #0cf;
+            color: #0cf;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 60px;
+            cursor: pointer;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            transition: 0.2s;
+            box-shadow: 0 0 8px #0cf;
+            margin-top: 10px;
+            font-family: 'Orbitron', monospace;
+        }
+
+        .btn-neon:hover {
+            background: #0cf;
+            color: #010101;
+            box-shadow: 0 0 28px #0cf;
+            transform: scale(1.01);
+        }
+
+        /* ripple effect */
+        .ripple-btn {
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* warning */
+        .warning {
+            color: #ff3366;
+            font-size: 0.75rem;
+            margin-top: 5px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            text-shadow: 0 0 4px red;
+        }
+
+        /* card hasil premium - bersih hanya untuk konten */
+        .result-card {
+            background: linear-gradient(145deg, #0b0f1f, #030617);
+            border-radius: 28px;
+            padding: 1.8rem;
+            border: 1px solid #33ccff;
+            box-shadow: 0 0 25px rgba(0, 200, 255, 0.3), inset 0 0 20px rgba(0,255,255,0.05);
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto 0 auto;
+            transform: scale(0.95) translateY(20px);
+            opacity: 0;
+            transition: all 0.6s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            position: relative;
+            overflow: hidden;
+        }
+        .result-card.show {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
+        /* border glow animasi */
+        .result-card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #0cf, #2a6fdf, #0cf, #a0f);
+            background-size: 400%;
+            border-radius: 30px;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.5s;
+            animation: borderGlow 3s linear infinite;
+        }
+        .result-card.show::before {
+            opacity: 0.6;
+        }
+        @keyframes borderGlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .member-status {
+            font-size: 1rem;
+            background: rgba(0, 255, 255, 0.15);
+            display: inline-block;
+            padding: 6px 18px;
+            border-radius: 40px;
+            margin-bottom: 20px;
+            color: #3efffe;
+            border: 1px solid #0cf;
+            box-shadow: 0 0 10px #0cf;
+            letter-spacing: 2px;
+        }
+        .card-detail p {
+            margin: 12px 0;
+            border-bottom: 1px dashed #2a6f9f;
+            padding-bottom: 5px;
+            word-break: break-word;
+        }
+        .tiny-watermark {
+            text-align: right;
+            font-size: 0.7rem;
+            margin-top: 18px;
+            color: #5f9eff;
+        }
+
+        /* Area aksi di bawah card (terpisah) */
+        .card-actions {
+            width: 100%;
+            max-width: 600px;
+            margin: 16px auto 20px auto;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            border-radius: 32px;
+            padding: 1.2rem;
+            border: 1px solid rgba(0, 230, 250, 0.3);
+            text-align: center;
+        }
+        .screenshot-info {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 0.85rem;
+            background: #00000066;
+            padding: 8px;
+            border-radius: 20px;
+            color: #bbf0ff;
+        }
+        .btn-wa {
+            background: #128C7E;
+            border: none;
+            color: white;
+            margin-top: 10px;
+            box-shadow: 0 0 10px #25d36680;
+        }
+        .btn-download {
+            background: linear-gradient(95deg, #2a2a6e, #10103a);
+            border-color: #aaffdd;
+            color: #ccf;
+            margin-top: 8px;
+        }
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #0cf;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        footer {
+            text-align: center;
+            font-size: 0.7rem;
+            margin-top: 40px;
+            opacity: 0.7;
+            z-index: 20;
+            position: relative;
+            font-family: monospace;
+            width: 100%;
+        }
+        .toast-notif {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0a1f2ec9;
+            backdrop-filter: blur(12px);
+            border-left: 6px solid #0cf;
+            padding: 12px 24px;
+            border-radius: 50px;
+            color: #aff;
+            z-index: 300;
+            font-weight: bold;
+            font-family: monospace;
+            pointer-events: none;
+        }
+        /* fix mobile overflow */
+        @media (max-width: 550px) {
+            .glass-panel, .result-card, .card-actions {
+                padding: 1.2rem;
+                margin: 15px auto;
+            }
+            .btn-neon {
+                font-size: 0.9rem;
+                padding: 10px 18px;
+            }
+            .member-status {
+                font-size: 0.8rem;
+            }
+            #mainApp {
+                padding: 75px 0.8rem 1.5rem 0.8rem;
+            }
+        }
+        /* smooth scroll */
+        html {
+            scroll-behavior: smooth;
+        }
+        /* cursor glow effect (bonus) */
+        .glow-cursor {
+            position: fixed;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0,255,255,0.4) 0%, rgba(0,255,255,0) 70%);
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: transform 0.05s;
+        }
+    </style>
+</head>
+<body>
+
+<div class="glow-cursor" id="glowCursor"></div>
+<canvas id="galaxyCanvas"></canvas>
+<div class="scanline"></div>
+
+<!-- NAVBAR FIXED -->
+<nav class="navbar">
+    <div class="navbar-brand">✦ T.E.A ✦</div>
+    <div class="navbar-menu">
+        <a href="#" class="nav-link" id="navFormLink">Seleksi</a>
+        <a href="#" class="nav-link" id="navCardLink">Member Card</a>
+    </div>
+</nav>
+
+<!-- LOADING SCREEN dengan teks dinamis -->
+<div id="loadingScreen">
+    <div class="loader-container">
+        <div class="loader-text">✨ Welcome to T.E.A Selection ✨</div>
+        <div class="progress-bar-bg">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="percent" id="percentText">0%</div>
+        <div id="dynamicMsg" style="margin-top: 20px; font-size: 13px; letter-spacing: 1px; color: #8cf;">Menghubungkan ke server galaksi...</div>
+        <div style="margin-top: 25px; font-size: 12px; letter-spacing: 2px;">The Editor of Astronomy</div>
+    </div>
+</div>
+
+<!-- MAIN APP (Form + Card) -->
+<div id="mainApp">
+    <!-- FORM SECTION -->
+    <div id="formSection" class="glass-panel fade-slide">
+        <h2 style="text-align:center; margin-bottom: 25px; font-family: Orbitron;">✦ SELEKSI MEMBER ✦</h2>
+        <form id="teaForm">
+            <div class="form-group">
+                <label>🌌 Nama Lengkap</label>
+                <input type="text" id="nama" placeholder="Ex: Cahyo" autocomplete="off">
+                <div class="warning" id="warnNama"></div>
+            </div>
+            <div class="form-group">
+                <label>🪐 Umur</label>
+                <input type="number" id="umur" placeholder="Minimal 10 tahun">
+                <div class="warning" id="warnUmur"></div>
+            </div>
+            <div class="form-group">
+                <label>✨ Hobi</label>
+                <input type="text" id="hobi" placeholder="Astrofotografi, Coding, dll">
+                <div class="warning" id="warnHobi"></div>
+            </div>
+            <div class="form-group">
+                <label>⚡ Skill Utama</label>
+                <input type="text" id="skill" placeholder="Python, Photoshop, Editing">
+                <div class="warning" id="warnSkill"></div>
+            </div>
+            <div class="form-group">
+                <label>📱 Akun TikTok</label>
+                <input type="text" id="tiktok" placeholder="@username_tea">
+                <div class="warning" id="warnTiktok"></div>
+            </div>
+            <button type="button" id="submitBtn" class="btn-neon ripple-btn">⟡ Kirim Data ⟡</button>
+        </form>
+    </div>
+
+    <!-- CARD RESULT (hanya konten member, tanpa tombol/teks tambahan) -->
+    <div id="resultContainer" style="width:100%; display: flex; justify-content: center;">
+        <div id="resultCard" class="result-card" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap;">
+                <div class="member-status">✔ OFFICIAL MEMBER T.E.A</div>
+                <div style="font-size:12px; opacity:0.7;">#TEA</div>
+            </div>
+            <h2 style="font-size: 1.8rem; margin: 10px 0; text-align:center;">TEA COMMUNITY</h2>
+            <div class="card-detail" id="cardDetail"></div>
+            <div class="tiny-watermark">T.E.A TIM</div>
+        </div>
+    </div>
+
+    <!-- AREA AKSI: instruksi, tombol download & WA (TERPISAH dari card) -->
+    <div id="cardActions" class="card-actions" style="display: none;">
+        <div class="screenshot-info">📸 Silakan screenshot / download kartu ini sebagai bukti pendaftaran.</div>
+        <div class="button-group">
+            <button id="downloadCardBtn" class="btn-neon btn-download ripple-btn">⬇ Download Card (PNG)</button>
+            <button id="joinWhatsappBtn" class="btn-neon btn-wa ripple-btn" style="background:#075e54;">⟡ Gabung Grup T.E.A ⟡</button>
+        </div>
+    </div>
+
+    <footer>
+        <a href="https://website-cahy144hz.vercel.app/" target="_blank" style="color:#0cf; text-decoration:none;">"OFFICIAL WEBSITE DEV || MIMIN CAHY"</a><br>
+        © cahy144hz || dev
+    </footer>
+</div>
+
+<script>
+    (function(){
+        // ========== GALAXY + PARTICLE + SHOOTING STAR ==========
+        const canvas = document.getElementById('galaxyCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let particles1 = [], particles2 = [];
+        let shootingStars = [];
+        let mouseX = 0, mouseY = 0;
+        let time = 0;
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            initParticles();
+        }
+
+        class Particle {
+            constructor(layer) {
+                this.layer = layer;
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.radius = Math.random() * (layer === 1 ? 2.2 : 1.2) + (layer === 1 ? 0.8 : 0.4);
+                this.speedX = (layer === 1 ? (Math.random() - 0.5) * 0.3 : (Math.random() - 0.5) * 0.12);
+                this.speedY = (layer === 1 ? (Math.random() - 0.5) * 0.2 : (Math.random() - 0.5) * 0.08);
+                this.alpha = Math.random() * 0.7 + 0.3;
+                this.color = `hsla(${Math.random() * 60 + 180}, 80%, 60%, ${this.alpha})`;
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                if (this.x < -20) this.x = width + 20;
+                if (this.x > width + 20) this.x = -20;
+                if (this.y < -20) this.y = height + 20;
+                if (this.y > height + 20) this.y = -20;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.shadowBlur = 4;
+                ctx.shadowColor = '#0cf';
+            }
+        }
+
+        class ShootingStar {
+            constructor() { this.reset(); }
+            reset() {
+                this.active = true;
+                this.x = Math.random() * width;
+                this.y = Math.random() * (height * 0.3);
+                this.vx = (Math.random() * 7 + 5) * (Math.random() > 0.5 ? 1 : -1);
+                this.vy = (Math.random() * 3 + 2);
+                this.length = Math.random() * 60 + 30;
+                this.opacity = 1;
+                this.age = 0;
+                this.life = 70;
+            }
+            update() {
+                if (!this.active) return;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.age++;
+                this.opacity = 1 - (this.age / this.life);
+                if (this.age >= this.life || this.x > width+200 || this.x < -200 || this.y > height+200) {
+                    this.active = false;
+                    if(Math.random() < 0.02) this.reset();
+                }
+            }
+            draw() {
+                if (!this.active || this.opacity <= 0) return;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x - this.vx * 0.5, this.y - this.vy * 0.5);
+                ctx.lineWidth = 2.5;
+                ctx.strokeStyle = `rgba(255, 240, 200, ${this.opacity * 0.9})`;
+                ctx.stroke();
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = 'cyan';
+            }
+        }
+
+        function initParticles() {
+            particles1 = []; particles2 = [];
+            let count1 = Math.min(300, Math.floor(width * height / 4000));
+            let count2 = Math.min(180, Math.floor(width * height / 7000));
+            for(let i=0;i<count1;i++) particles1.push(new Particle(1));
+            for(let i=0;i<count2;i++) particles2.push(new Particle(2));
+        }
+
+        function addShootingStarRandom() {
+            if (shootingStars.length < 5 && Math.random() < 0.012) {
+                let star = new ShootingStar();
+                star.reset();
+                shootingStars.push(star);
+            }
+            for(let i=0;i<shootingStars.length;i++) if(!shootingStars[i].active) { shootingStars.splice(i,1); i--; }
+        }
+
+        function drawNebula() {
+            const grad = ctx.createLinearGradient(0,0,width,height);
+            grad.addColorStop(0, 'rgba(20,5,55,0.2)');
+            grad.addColorStop(0.5, 'rgba(70,20,100,0.15)');
+            grad.addColorStop(1, 'rgba(10,30,70,0.25)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0,0,width,height);
+            for(let i=0;i<3;i++) {
+                ctx.beginPath();
+                ctx.ellipse(width*0.3+Math.sin(time*0.001)*40, height*0.6+Math.cos(time*0.0007)*30, 200, 120, 0, 0, Math.PI*2);
+                ctx.fillStyle = `rgba(80, 60, 180, 0.05)`;
+                ctx.fill();
+            }
+        }
+
+        function animateGalaxy() {
+            if(!ctx) return;
+            ctx.clearRect(0,0,width,height);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#010118';
+            ctx.fillRect(0,0,width,height);
+            drawNebula();
+            for(let p of particles2) { p.update(); p.draw(); }
+            for(let p of particles1) { p.update(); p.draw(); }
+            for(let s of shootingStars) { s.update(); s.draw(); }
+            addShootingStarRandom();
+            if(mouseX !== 0 || mouseY !== 0){
+                let moveX = (mouseX - width/2) * 0.0003;
+                let moveY = (mouseY - height/2) * 0.0003;
+                particles1.forEach(p => { p.x += moveX; p.y += moveY; });
+                particles2.forEach(p => { p.x += moveX*0.5; p.y += moveY*0.5; });
+            }
+            time++;
+            requestAnimationFrame(animateGalaxy);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('mousemove', (e)=>{ mouseX = e.clientX; mouseY = e.clientY; });
+        resizeCanvas();
+        animateGalaxy();
+
+        // ========== LOADING SCREEN UPGRADE ==========
+        let progress = 0;
+        const progressFill = document.getElementById('progressFill');
+        const percentSpan = document.getElementById('percentText');
+        const loadingDiv = document.getElementById('loadingScreen');
+        const mainApp = document.getElementById('mainApp');
+        const dynamicMsg = document.getElementById('dynamicMsg');
+        const messages = [
+            "Menghubungkan ke server galaksi...",
+            "Memverifikasi data calon member...",
+            "Menyiapkan sistem seleksi...",
+            "Sinkronisasi data kosmik...",
+            "Menganalisis spektrum bintang...",
+            "Mengaktifkan protokol T.E.A..."
+        ];
+        let msgIndex = 0;
+        function updateDynamicMsg(prog) {
+            let newIdx = Math.floor(prog / 20);
+            if(newIdx >= messages.length) newIdx = messages.length-1;
+            if(newIdx !== msgIndex) {
+                msgIndex = newIdx;
+                dynamicMsg.innerText = messages[msgIndex];
+            }
+        }
+        function simulateLoading() {
+            let interval = setInterval(() => {
+                if (progress < 100) {
+                    progress += Math.floor(Math.random() * 6) + 2;
+                    if (progress > 100) progress = 100;
+                    progressFill.style.width = progress + '%';
+                    percentSpan.innerText = progress + '%';
+                    updateDynamicMsg(progress);
+                } 
+                if (progress === 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        loadingDiv.style.opacity = '0';
+                        setTimeout(() => {
+                            loadingDiv.style.display = 'none';
+                            mainApp.style.opacity = '1';
+                            document.querySelector('#formSection').style.animation = 'fadeSlideUp 0.7s ease';
+                        }, 800);
+                    }, 400);
+                }
+            }, 45);
+        }
+        simulateLoading();
+
+        const styleAnim = document.createElement('style');
+        styleAnim.textContent = `
+            @keyframes fadeSlideUp { 0% { opacity: 0; transform: translateY(35px); } 100% { opacity: 1; transform: translateY(0); } }
+            .fade-slide { animation: fadeSlideUp 0.6s ease-out; }
+        `;
+        document.head.appendChild(styleAnim);
+
+        // ========== FORM VALIDASI KETAT + AUTO FOCUS + SHAKE ==========
+        const namaInp = document.getElementById('nama');
+        const umurInp = document.getElementById('umur');
+        const hobiInp = document.getElementById('hobi');
+        const skillInp = document.getElementById('skill');
+        const tiktokInp = document.getElementById('tiktok');
+        const submitBtn = document.getElementById('submitBtn');
+        const resultCardDiv = document.getElementById('resultCard');
+        const cardDetail = document.getElementById('cardDetail');
+        const cardActionsDiv = document.getElementById('cardActions');
+
+        function showWarning(element, message) {
+            const warnDiv = document.getElementById(`warn${element.charAt(0).toUpperCase() + element.slice(1)}`);
+            if(warnDiv) warnDiv.innerHTML = message ? `⚠️ ${message}` : '';
+        }
+        function clearWarnings() {
+            ['nama','umur','hobi','skill','tiktok'].forEach(f => showWarning(f,''));
+        }
+        function removeErrorClass() {
+            [namaInp, umurInp, hobiInp, skillInp, tiktokInp].forEach(inp => inp.classList.remove('input-error'));
+        }
+        function validateForm() {
+            removeErrorClass();
+            clearWarnings();
+            let valid = true;
+            const nama = namaInp.value.trim();
+            const umur = umurInp.value.trim();
+            const hobi = hobiInp.value.trim();
+            const skill = skillInp.value.trim();
+            const tiktok = tiktokInp.value.trim();
+            if(!nama) { showWarning('nama','Nama wajib diisi'); valid=false; namaInp.classList.add('input-error'); }
+            if(!umur || isNaN(umur) || parseInt(umur) < 10) { showWarning('umur','Umur harus angka minimal 10 tahun'); valid=false; umurInp.classList.add('input-error'); }
+            if(!hobi) { showWarning('hobi','Hobi tidak boleh kosong'); valid=false; hobiInp.classList.add('input-error'); }
+            if(!skill) { showWarning('skill','Skill wajib diisi'); valid=false; skillInp.classList.add('input-error'); }
+            if(!tiktok) { showWarning('tiktok','Akun TikTok diperlukan'); valid=false; tiktokInp.classList.add('input-error'); }
+            if(!valid) {
+                const firstError = [namaInp, umurInp, hobiInp, skillInp, tiktokInp].find(inp => inp.classList.contains('input-error'));
+                if(firstError) firstError.focus();
+            }
+            return valid;
+        }
+
+        function showToast(msg, duration=2000) {
+            let toast = document.createElement('div');
+            toast.className = 'toast-notif';
+            toast.innerText = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), duration);
+        }
+
+        // Sound effect ringan (bonus)
+        function playSubmitSound() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                oscillator.connect(gain);
+                gain.connect(audioCtx.destination);
+                oscillator.frequency.value = 880;
+                gain.gain.value = 0.2;
+                oscillator.start();
+                gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5);
+                oscillator.stop(audioCtx.currentTime + 0.4);
+            } catch(e) { console.log("audio not supported"); }
+        }
+
+        function simulateSpinnerAndCard() {
+            if(!validateForm()) return;
+            playSubmitSound();
+            submitBtn.disabled = true;
+            const originalText = submitBtn.innerText;
+            submitBtn.innerHTML = '<span class="spinner"></span> Mengirim...';
+            setTimeout(() => {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+                showToast("✨ Data berhasil dikirim ✨", 1500);
+                const nama = namaInp.value.trim();
+                const umur = umurInp.value.trim();
+                const hobi = hobiInp.value.trim();
+                const skill = skillInp.value.trim();
+                const tiktok = tiktokInp.value.trim();
+                const cardHtml = `
+                    <p><strong>👤 Nama:</strong> ${nama}</p>
+                    <p><strong>🪐 Umur:</strong> ${umur} tahun</p>
+                    <p><strong>✨ Hobi:</strong> ${hobi}</p>
+                    <p><strong>⚡ Skill:</strong> ${skill}</p>
+                    <p><strong>📱 TikTok:</strong> ${tiktok}</p>
+                `;
+                cardDetail.innerHTML = cardHtml;
+                resultCardDiv.style.display = 'block';
+                resultCardDiv.classList.remove('show');
+                void resultCardDiv.offsetWidth;
+                resultCardDiv.classList.add('show');
+                // Tampilkan area aksi (tombol dan instruksi)
+                cardActionsDiv.style.display = 'block';
+                // scroll ke card
+                resultCardDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                showToast("✅ Kartu member telah dibuat, download sebagai bukti!", 2500);
+            }, 800);
+        }
+
+        submitBtn.addEventListener('click', simulateSpinnerAndCard);
+
+        // ========== DOWNLOAD CARD DENGAN HTML2CANVAS (hanya card, tanpa actions) ==========
+        const downloadBtn = document.getElementById('downloadCardBtn');
+        downloadBtn.addEventListener('click', function() {
+            const cardElement = document.getElementById('resultCard');
+            if(!cardElement || cardElement.style.display === 'none') {
+                showToast("⚠️ Tidak ada kartu untuk diunduh. Isi form terlebih dahulu.", 2000);
+                return;
+            }
+            showToast("📸 Memproses gambar kartu...", 1200);
+            html2canvas(cardElement, { scale: 2, backgroundColor: null, logging: false }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'TEA_Member_Card.png';
+                link.href = canvas.toDataURL();
+                link.click();
+                showToast("✨ Kartu berhasil diunduh!", 1500);
+            }).catch(err => { showToast("Gagal generate gambar", 1500); });
+        });
+
+        // Tombol WA
+        const joinBtn = document.getElementById('joinWhatsappBtn');
+        if(joinBtn) {
+            joinBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.open('https://chat.whatsapp.com/FrYPryo1gJb6eHbNhXJRvu?mode=gi_t', '_blank');
+            });
+        }
+
+        // RIPPLE manual
+        document.querySelectorAll('.ripple-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                let x = e.clientX - e.target.getBoundingClientRect().left;
+                let y = e.clientY - e.target.getBoundingClientRect().top;
+                let ripple = document.createElement('span');
+                ripple.style.position = 'absolute';
+                ripple.style.left = x + 'px';
+                ripple.style.top = y + 'px';
+                ripple.style.width = '0px';
+                ripple.style.height = '0px';
+                ripple.style.borderRadius = '50%';
+                ripple.style.backgroundColor = 'rgba(0, 255, 255, 0.5)';
+                ripple.style.transform = 'translate(-50%, -50%)';
+                ripple.style.transition = 'all 0.5s';
+                ripple.style.pointerEvents = 'none';
+                btn.style.position = 'relative';
+                btn.style.overflow = 'hidden';
+                btn.appendChild(ripple);
+                setTimeout(() => { ripple.style.width = '300px'; ripple.style.height = '300px'; ripple.style.opacity = '0'; }, 10);
+                setTimeout(() => ripple.remove(), 500);
+            });
+        });
+
+        // Cursor glow effect
+        const cursorGlow = document.getElementById('glowCursor');
+        document.addEventListener('mousemove', (e) => {
+            if(cursorGlow) {
+                cursorGlow.style.left = e.clientX + 'px';
+                cursorGlow.style.top = e.clientY + 'px';
+            }
+        });
+        // Nav smooth scroll
+        document.getElementById('navFormLink')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('formSection').scrollIntoView({ behavior: 'smooth' });
+        });
+        document.getElementById('navCardLink')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            if(resultCardDiv.style.display === 'block') resultCardDiv.scrollIntoView({ behavior: 'smooth' });
+            else showToast("Belum ada kartu, isi form terlebih dahulu", 1500);
+        });
+        // Input glow micro interaction
+        const allInputs = document.querySelectorAll('input');
+        allInputs.forEach(inp => inp.addEventListener('focus', () => inp.style.transition = '0.2s'));
+    })();
+</script>
+</body>
+</html>
